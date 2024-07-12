@@ -6,6 +6,7 @@
 
 local base = require("./base")
 local chunks = require("chunks")
+local twpacket = require("packet")
 
 CTRL_KEEP_ALIVE = 0x00
 CTRL_CONNECT = 0x01
@@ -15,30 +16,75 @@ CTRL_TOKEN = 0x05
 
 
 local teeworlds_client = {
-	server_token = "",
+	-- 4 byte security token
+	server_token = string.char(0xFF, 0xFF, 0xFF, 0xFF),
+
+	-- 4 byte security token
 	client_token = string.char(0xAA, 0x02, 0x03, 0x04),
+
+	-- the amount of vital chunks sent
+	sequence = 0,
+
+	-- the amount of vital chunks received
+	ack = 0,
+
+	-- the amount of vital chunks acknowledged by the peer
+	peerack = 0
 }
+
+-- @param messages table of strings with fully packed messages (with chunk header)
+-- @param control boolean indicating if it is a control packet or not
+-- @return string
+local function build_packet(messages, control)
+	if control == nil then
+		control = false
+	end
+	local packet = {
+		header = {
+			flags = {
+				control = control,
+				resend = false,
+				compression = false,
+				connless = false
+			},
+			num_chunks = 0,
+			ack = 0,
+			token = string.char(0xff, 0xff, 0xff, 0xff)
+		},
+		payload = ""
+	}
+	packet.header.num_chunks = #messages
+	if packet.header.flags.control == true then
+		packet.header.num_chunks = 0
+	end
+	packet.header.token = teeworlds_client.server_token
+	packet.header.ack = teeworlds_client.ack
+
+	for _, msg in ipairs(messages) do
+		packet.payload = packet.payload .. msg
+	end
+
+	return twpacket.pack_packet(packet)
+end
 
 -- @return string
 local function ctrl_msg_token()
-	local msg = string.char(0x04, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x05) .. teeworlds_client.client_token
+	local msg = string.char(CTRL_TOKEN) .. teeworlds_client.client_token
 	for _ = 1, 512, 1 do
 		msg = msg .. string.char(0x00)
 	end
-	return msg
+	return build_packet({msg}, true)
 end
 
 local function ctrl_connect()
-	local msg = string.char(0x04, 0x00, 0x00)
-	msg = msg .. teeworlds_client.server_token .. string.char(CTRL_CONNECT) .. teeworlds_client.client_token
+	local msg = string.char(CTRL_CONNECT) .. teeworlds_client.client_token
 	for _ = 1, 512, 1 do
 		msg = msg .. string.char(0x00)
 	end
-	return msg
+	return build_packet({msg}, true)
 end
 
 local function version_and_password()
-	local header = string.char(0x00, 0x00, 0x01) .. teeworlds_client.server_token
 	local msg = string.char(
 		0x40, 0x28, 0x01, 0x03, 0x30, 0x2E, 0x37, 0x20, 0x38,
 		0x30, 0x32, 0x66, 0x31, 0x62, 0x65, 0x36, 0x30, 0x61,
@@ -46,19 +92,17 @@ local function version_and_password()
 		0x5F, 0x70, 0x61, 0x73, 0x73, 0x77, 0x6F, 0x72, 0x64,
 		0x5F, 0x31, 0x32, 0x33, 0x00, 0x85, 0x1C, 0x00
 	)
-	return header .. msg
+	return build_packet({msg})
 end
 
 local function ready()
-	local header = string.char(0x00, 0x01, 0x01) .. teeworlds_client.server_token
 	local msg = string.char(
 		0x40, 0x01, 0x02, 0x25
 	)
-	return header .. msg
+	return build_packet({msg})
 end
 
 local function start_info()
-	local header = string.char(0x00, 0x04, 0x01) .. teeworlds_client.server_token
 	local msg = string.char(
 		0x41, 0x19, 0x03, 0x36, 0x6E, 0x61, 0x6D, 0x65, 0x6C, 0x65, 0x73, 0x73,
 		0x20, 0x74, 0x65, 0x65, 0x00, 0x00, 0x40, 0x73, 0x70, 0x69, 0x6B, 0x79,
@@ -69,15 +113,14 @@ local function start_info()
 		0xBD, 0xD2, 0xA9, 0x85, 0x0C, 0x80, 0xFE, 0x07, 0x80, 0xC0, 0xAB, 0x05,
 		0x9C, 0xDE, 0xAA, 0x05, 0x9E, 0xC9, 0xE5, 0x01
 	)
-	return header .. msg
+	return build_packet({msg})
 end
 
 local function enter_game()
-	local header = string.char(0x00, 0x06, 0x01) .. teeworlds_client.server_token
 	local msg = string.char(
 		0x40, 0x01, 0x04, 0x27
 	)
-	return header .. msg
+	return build_packet({msg})
 end
 
 local socket = require("socket")
@@ -89,9 +132,19 @@ assert(udp:setpeername("127.0.0.1", 8303))
 
 assert(udp:send(ctrl_msg_token()))
 
+local hack_known_sequence_numbers = {}
+
 -- @param chunk
 local function on_message(chunk)
 	print("got message vital=" .. tostring(chunk.header.flags.vital) .. " size=" .. chunk.header.size .. " data=" .. base.str_hex(chunk.data))
+	if chunk.header.flags.vital then
+		-- TODO: do not keep all known sequence numbers in a table
+		--       that is a full on memory leak!
+		if hack_known_sequence_numbers[chunk.header.seq] == nil then
+			teeworlds_client.ack = teeworlds_client.ack + 1
+		end
+		hack_known_sequence_numbers[chunk.header.seq] = true
+	end
 end
 
 -- @param data string
