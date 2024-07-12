@@ -4,22 +4,15 @@
 -- apt install lua5.2 lua-socket
 --
 
+local base = require("./base")
+local chunks = require("chunks")
+
 CTRL_KEEP_ALIVE = 0x00
 CTRL_CONNECT = 0x01
 CTRL_ACCEPT = 0x02
 CTRL_CLOSE = 0x04
 CTRL_TOKEN = 0x05
 
--- @param data string
--- @return string
-function STR_HEX(data)
-	local hex_str = ""
-	for i = 1, #data do
-		local c = data:sub(i, i)
-		hex_str = hex_str .. string.format("%02X ", string.byte(c))
-	end
-	return hex_str
-end
 
 local teeworlds_client = {
 	server_token = "",
@@ -96,8 +89,14 @@ assert(udp:setpeername("127.0.0.1", 8303))
 
 assert(udp:send(ctrl_msg_token()))
 
+-- @param chunk
+local function on_message(chunk)
+	print("got message vital=" .. tostring(chunk.header.flags.vital) .. " size=" .. chunk.header.size .. " data=" .. base.str_hex(chunk.data))
+end
+
+-- @param data string
 local function on_data(data)
-	print(STR_HEX(data))
+	print(base.str_hex(data))
 	if #data < 8 then
 		print("ignoring too short packet")
 		return
@@ -108,7 +107,7 @@ local function on_data(data)
 		print("got ctrl: " .. ctrl)
 		if ctrl == CTRL_TOKEN then
 			teeworlds_client.server_token = payload:sub(2)
-			print("got token: " .. STR_HEX(teeworlds_client.server_token))
+			print("got token: " .. base.str_hex(teeworlds_client.server_token))
 			assert(udp:send(ctrl_connect()))
 		elseif ctrl == CTRL_ACCEPT then
 			print("got accept")
@@ -124,8 +123,14 @@ local function on_data(data)
 			os.exit(0)
 		end
 	else -- sys and game messages
+		local messages = chunks.get_all_chunks(payload)
+		print("messages " .. #messages)
+		for _, msg in ipairs(messages) do
+			on_message(msg)
+		end
+
 		local hack_chunk_header = payload:sub(2, 4)
-		print("chunk headrer: " .. STR_HEX(hack_chunk_header))
+		print("chunk headrer: " .. base.str_hex(hack_chunk_header))
 		if hack_chunk_header == string.char(0x3A, 0x01, 0x05) then
 			print("got map change sending ready")
 			assert(udp:send(ready()))
