@@ -4,6 +4,10 @@
 -- apt install lua5.2 lua-socket
 --
 
+-- cd huffman
+-- sudo luarocks make
+local huffman = require("huffman")
+
 local base = require("./base")
 local chunks = require("chunks")
 local twpacket = require("packet")
@@ -190,16 +194,14 @@ local function on_data(data)
 	end
 	local packet = twpacket.unpack_packet(data)
 	if packet.header.flags.compression == true then
-		print("COMPRESSED PACKET NOT SUPPORTED YET!!!!")
-		os.exit(1)
+		packet.payload = huffman.decompress(packet.payload, #packet.payload)
 	end
 
-	local payload = data:sub(8)
 	if data:byte(1) == 0x04 then -- control message
-		local ctrl = payload:byte(1)
+		local ctrl = packet.payload:byte(1)
 		print("got ctrl: " .. ctrl)
 		if ctrl == CTRL_TOKEN then
-			teeworlds_client.server_token = payload:sub(2)
+			teeworlds_client.server_token = packet.payload:sub(2)
 			print("got token: " .. base.str_hex(teeworlds_client.server_token))
 			assert(udp:send(ctrl_connect()))
 		elseif ctrl == CTRL_ACCEPT then
@@ -207,23 +209,23 @@ local function on_data(data)
 			assert(udp:send(version_and_password()))
 		elseif ctrl == CTRL_CLOSE then
 			io.write("got disconnect from server")
-			local reason = payload:sub(2)
+			local reason = packet.payload:sub(2)
 			if #reason > 0 then
-				print(" (" .. payload:sub(2) .. ")")
+				print(" (" .. packet.payload:sub(2) .. ")")
 			else
 				print("")
 			end
 			os.exit(0)
 		end
 	else -- sys and game messages
-		local messages = chunks.get_all_chunks(payload)
-		print("payload: " .. base.str_hex(payload))
+		local messages = chunks.get_all_chunks(packet.payload)
+		print("payload: " .. base.str_hex(packet.payload))
 		print("messages " .. #messages)
 		for _, msg in ipairs(messages) do
 			on_message(msg)
 		end
 
-		local hack_chunk_header = payload:sub(2, 4)
+		local hack_chunk_header = packet.payload:sub(2, 4)
 		print("chunk headrer: " .. base.str_hex(hack_chunk_header))
 		if hack_chunk_header == string.char(0x3A, 0x01, 0x05) then
 			print("got map change sending ready")
