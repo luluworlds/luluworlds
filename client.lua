@@ -7,6 +7,7 @@
 local base = require("./base")
 local chunks = require("chunks")
 local twpacket = require("packet")
+local bits = require("bits")
 
 CTRL_KEEP_ALIVE = 0x00
 CTRL_CONNECT = 0x01
@@ -14,6 +15,12 @@ CTRL_ACCEPT = 0x02
 CTRL_CLOSE = 0x04
 CTRL_TOKEN = 0x05
 
+SYS_INFO = 1
+SYS_MAP_CHANGE = 2
+SYS_MAP_DATA = 3
+SYS_SERVER_INFO = 4
+SYS_CON_READY = 5
+SYS_SNAP = 6
 
 local teeworlds_client = {
 	-- 4 byte security token
@@ -134,7 +141,23 @@ assert(udp:send(ctrl_msg_token()))
 
 local hack_known_sequence_numbers = {}
 
--- @param chunk
+-- @param msg_id integer
+-- @param chunk table
+local function on_game_msg(msg_id, chunk)
+
+end
+
+-- @param msg_id integer
+-- @param chunk table
+local function on_system_msg(msg_id, chunk)
+	if msg_id == SYS_CON_READY then
+		print("XXXXXXXXXXXXXX READY")
+	else
+		print("unknown system msg " .. msg_id)
+	end
+end
+
+-- @param chunk table
 local function on_message(chunk)
 	print("got message vital=" .. tostring(chunk.header.flags.vital) .. " size=" .. chunk.header.size .. " data=" .. base.str_hex(chunk.data))
 	if chunk.header.flags.vital then
@@ -145,15 +168,32 @@ local function on_message(chunk)
 		end
 		hack_known_sequence_numbers[chunk.header.seq] = true
 	end
+
+	local msg_id = chunk.data:byte(1)
+	local sys = bits.bit_and(msg_id, 1) ~= 0
+	msg_id = bits.rshift(msg_id, 1)
+	print("sys=" .. tostring(sys) .. " msg_id=" .. msg_id)
+
+	if sys then
+		on_game_msg(msg_id, chunk)
+	else
+		on_system_msg(msg_id, chunk)
+	end
 end
 
 -- @param data string
 local function on_data(data)
-	print(base.str_hex(data))
+	print("INCOMING DATA: " .. base.str_hex(data))
 	if #data < 8 then
 		print("ignoring too short packet")
 		return
 	end
+	local packet = twpacket.unpack_packet(data)
+	if packet.header.flags.compression == true then
+		print("COMPRESSED PACKET NOT SUPPORTED YET!!!!")
+		os.exit(1)
+	end
+
 	local payload = data:sub(8)
 	if data:byte(1) == 0x04 then -- control message
 		local ctrl = payload:byte(1)
@@ -177,6 +217,7 @@ local function on_data(data)
 		end
 	else -- sys and game messages
 		local messages = chunks.get_all_chunks(payload)
+		print("payload: " .. base.str_hex(payload))
 		print("messages " .. #messages)
 		for _, msg in ipairs(messages) do
 			on_message(msg)
@@ -193,6 +234,9 @@ local function on_data(data)
 		elseif  hack_chunk_header == string.char(0x01, 0x05, 0x16) then
 			print("assume this is ready to enter xd")
 			assert(udp:send(enter_game()))
+		else
+			print("unknown msg just respond with keepalive lmao")
+			assert(udp:send(build_packet({string.char(CTRL_KEEP_ALIVE)}, true)))
 		end
 	end
 	-- needed for neovim
