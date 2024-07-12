@@ -3,7 +3,9 @@
 ```
 sudo apt-get install luarocks
 cd huffman
-sudo luarocks make
+luarocks make
+
+luarocks install bitop-lua
 ```
 
 ```

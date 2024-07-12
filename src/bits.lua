@@ -1,20 +1,10 @@
--- https://stackoverflow.com/a/25594410
+local bit = require 'bitop.funcs'
 
-local function bit_xor(a,b)
-    local p,c=1,0
-    while a>0 and b>0 do
-        local ra,rb=a%2,b%2
-        if ra~=rb then c=c+p end
-        a,b,p=(a-ra)/2,(b-rb)/2,p*2
-    end
-    if a<b then a=b end
-    while a>0 do
-        local ra=a%2
-        if ra>0 then c=c+p end
-        a,p=(a-ra)/2,p*2
-    end
-    return c
+local function bit32_bxor(a, b)
+    return bit.bxor(a, b)
 end
+
+-- https://stackoverflow.com/a/25594410
 
 local function bit_or(a,b)
     local p,c=1,0
@@ -55,6 +45,6 @@ local function rshift(x, by)
   return math.floor(x / 2 ^ by)
 end
 
-return { bit_or = bit_or, bit_not = bit_not, bit_and = bit_and, lshift = lshift, rshift = rshift, bit_xor = bit_xor }
+return { bit_or = bit_or, bit_not = bit_not, bit_and = bit_and, lshift = lshift, rshift = rshift, bit_xor = bit32_bxor }
 
 

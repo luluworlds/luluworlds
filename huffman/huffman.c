@@ -383,15 +383,6 @@ int huff_decompress(lua_State* L)
 	int DecompressedSize = Decompress(pInput, Size, aOutput, sizeof(aOutput));
 	lua_pushlstring(L, (const char *)aOutput, DecompressedSize);
 
-	printf("input=%p\n", pInput);
-	printf("size=%td\n", Size);
-	for(int i = 0; i < Size; i++) {
-		printf(" %d ", pInput[i]);
-	}
-	puts("");
-
-	lua_pushlstring(L, (const char *)aOutput, DecompressedSize);
-
 	return 1;
 }
 

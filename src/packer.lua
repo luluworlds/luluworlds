@@ -62,10 +62,41 @@ local function get_int(packer)
 	return res
 end
 
-local packer = reset(string.char(0x01, 0x02, 0xff, 0x01))
+-- @param num integer
+-- @return string
+local function pack_int(num)
+	local res = string.char(0x00)
+
+	if num < 0 then
+		res = string.char(0x40)
+		num = bits.bit_not(num)
+	end
+
+	res = string.char(bits.bit_or(res:byte(1), bits.bit_and(num, 0x3F)))
+	num = bits.rshift(num, 6)
+
+	while num > 0
+	do
+		res = res:sub(1, -2) .. string.char(bits.bit_or(res:sub(-1):byte(1), 0x80))
+		res = res .. string.char(bits.bit_and(num, 0x7F))
+		num = bits.rshift(num, 7)
+	end
+
+	return res
+end
+
+assert(pack_int(0) == string.char(0))
+assert(pack_int(1) == string.char(1))
+assert(pack_int(2) == string.char(2))
+assert(pack_int(127) == string.char(0xBF, 0x01))
+
+local packer = reset(string.char(0xFF, 0x01))
+assert(get_int(packer) == -128)
+
+packer = reset(string.char(0x01, 0x02, 0xFF, 0x01))
 assert(get_int(packer) == 1)
 assert(get_int(packer) == 2)
-assert(get_int(packer) == 127)
+assert(get_int(packer) == -128)
 
 
 return { reset = reset, get_int = get_int, byte = byte, pop_byte = pop_byte }

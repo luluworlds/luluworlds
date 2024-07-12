@@ -12,6 +12,7 @@ local base = require("src/base")
 local chunks = require("src/chunks")
 local twpacket = require("src/packet")
 local bits = require("src/bits")
+local packer = require("src/packer")
 
 CTRL_KEEP_ALIVE = 0x00
 CTRL_CONNECT = 0x01
@@ -25,6 +26,9 @@ SYS_MAP_DATA = 3
 SYS_SERVER_INFO = 4
 SYS_CON_READY = 5
 SYS_SNAP = 6
+SYS_SNAP_EMPTY = 7
+SYS_SNAP_SINGLE = 8
+SYS_SNAP_SMALL = 9
 
 local teeworlds_client = {
 	-- 4 byte security token
@@ -40,7 +44,10 @@ local teeworlds_client = {
 	ack = 0,
 
 	-- the amount of vital chunks acknowledged by the peer
-	peerack = 0
+	peerack = 0,
+
+	-- snapshot stuff
+	ack_game_tick = -1
 }
 
 -- @param messages table of strings with fully packed messages (with chunk header)
@@ -147,15 +154,24 @@ local hack_known_sequence_numbers = {}
 
 -- @param msg_id integer
 -- @param chunk table
-local function on_game_msg(msg_id, chunk)
+local function on_game_msg(msg_id, chunk, unpacker)
 
 end
 
 -- @param msg_id integer
 -- @param chunk table
-local function on_system_msg(msg_id, chunk)
+local function on_system_msg(msg_id, chunk, unpacker)
 	if msg_id == SYS_CON_READY then
 		print("XXXXXXXXXXXXXX READY")
+	elseif msg_id == SYS_SNAP then
+		print("oh snap")
+		teeworlds_client.ack_game_tick = packer.get_int(unpacker)
+	elseif msg_id == SYS_SNAP_EMPTY then
+		print("oh snap (empty)")
+		teeworlds_client.ack_game_tick = packer.get_int(unpacker)
+	elseif msg_id == SYS_SNAP_SINGLE then
+		print("oh snap (single)")
+		teeworlds_client.ack_game_tick = packer.get_int(unpacker)
 	else
 		print("unknown system msg " .. msg_id)
 	end
@@ -163,7 +179,7 @@ end
 
 -- @param chunk table
 local function on_message(chunk)
-	print("got message vital=" .. tostring(chunk.header.flags.vital) .. " size=" .. chunk.header.size .. " data=" .. base.str_hex(chunk.data))
+	-- print("got message vital=" .. tostring(chunk.header.flags.vital) .. " size=" .. chunk.header.size .. " data=" .. base.str_hex(chunk.data))
 	if chunk.header.flags.vital then
 		-- TODO: do not keep all known sequence numbers in a table
 		--       that is a full on memory leak!
@@ -176,18 +192,19 @@ local function on_message(chunk)
 	local msg_id = chunk.data:byte(1)
 	local sys = bits.bit_and(msg_id, 1) ~= 0
 	msg_id = bits.rshift(msg_id, 1)
-	print("sys=" .. tostring(sys) .. " msg_id=" .. msg_id)
+	-- print("sys=" .. tostring(sys) .. " msg_id=" .. msg_id)
+	local unpacker = packer.reset(chunk.data)
 
-	if sys then
-		on_game_msg(msg_id, chunk)
+	if sys == true then
+		on_system_msg(msg_id, chunk, unpacker)
 	else
-		on_system_msg(msg_id, chunk)
+		on_game_msg(msg_id, chunk, unpacker)
 	end
 end
 
 -- @param data string
 local function on_data(data)
-	print("INCOMING DATA: " .. base.str_hex(data))
+	-- print("INCOMING DATA: " .. base.str_hex(data))
 	if #data < 8 then
 		print("ignoring too short packet")
 		return
@@ -219,14 +236,14 @@ local function on_data(data)
 		end
 	else -- sys and game messages
 		local messages = chunks.get_all_chunks(packet.payload)
-		print("payload: " .. base.str_hex(packet.payload))
-		print("messages " .. #messages)
+		-- print("payload: " .. base.str_hex(packet.payload))
+		-- print("messages " .. #messages)
 		for _, msg in ipairs(messages) do
 			on_message(msg)
 		end
 
 		local hack_chunk_header = packet.payload:sub(2, 4)
-		print("chunk headrer: " .. base.str_hex(hack_chunk_header))
+		-- print("chunk headrer: " .. base.str_hex(hack_chunk_header))
 		if hack_chunk_header == string.char(0x3A, 0x01, 0x05) then
 			print("got map change sending ready")
 			assert(udp:send(ready()))
@@ -237,7 +254,7 @@ local function on_data(data)
 			print("assume this is ready to enter xd")
 			assert(udp:send(enter_game()))
 		else
-			print("unknown msg just respond with keepalive lmao")
+			-- print("unknown msg just respond with keepalive lmao")
 			assert(udp:send(build_packet({string.char(CTRL_KEEP_ALIVE)}, true)))
 		end
 	end
