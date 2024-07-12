@@ -1,6 +1,6 @@
-local bits = require("./bits")
-local t = require("./table")
-local base = require("./base")
+local bits = require("src/bits")
+local t = require("src/table")
+local base = require("src/base")
 
 CHUNKFLAG_VITAL = 1
 CHUNKFLAG_RESEND = 2

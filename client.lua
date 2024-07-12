@@ -8,10 +8,10 @@
 -- sudo luarocks make
 local huffman = require("huffman")
 
-local base = require("./base")
-local chunks = require("chunks")
-local twpacket = require("packet")
-local bits = require("bits")
+local base = require("src/base")
+local chunks = require("src/chunks")
+local twpacket = require("src/packet")
+local bits = require("src/bits")
 
 CTRL_KEEP_ALIVE = 0x00
 CTRL_CONNECT = 0x01

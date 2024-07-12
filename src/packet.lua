@@ -1,5 +1,5 @@
-local bits = require("bits")
-local base = require("base")
+local bits = require("src/bits")
+local base = require("src/base")
 
 PACKETFLAG_CONTROL=1
 PACKETFLAG_RESEND=2
