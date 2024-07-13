@@ -37,6 +37,9 @@ SYS_SNAP_SMALL = 9
 SYS_ENTER_GAME = string.char(0x27)
 SYS_INPUT = string.char(0x29)
 
+GAME_READY_TO_ENTER = 8
+
+
 -- @type table<string, (string | integer)>
 local teeworlds_client = {
 	-- 4 byte security token
@@ -55,7 +58,10 @@ local teeworlds_client = {
 	peerack = 0,
 
 	-- snapshot stuff
-	ack_game_tick = -1
+	ack_game_tick = -1,
+
+	-- udp socket
+	socket = assert(socket.udp())
 }
 
 -- @param messages table of strings with fully packed messages (with chunk header)
@@ -204,65 +210,54 @@ local function enter_game()
 	return build_packet({pack_chunk(teeworlds_client, SYS_ENTER_GAME)})
 end
 
-local udp = assert(socket.udp())
-
-udp:settimeout(1)
-assert(udp:setsockname("*", 0))
-
-local server_ip = "127.0.0.1"
-local server_port = 8303
-
-if arg[1] ~= nil then
-	local cmd = arg[1]
-	if base.str_starts_with(cmd, "connect ") == true then
-		local full_ip = base.str_sep(cmd, " ")[2]
-		server_ip = base.str_sep(full_ip, ":")[1]
-		local port_num = tonumber(base.str_sep(full_ip, ":")[2])
-		if port_num == nil then
-			print("invalid port")
-			os.exit(1)
-		end
-		server_port = port_num
-	else
-		print("unknown command " .. cmd)
-		os.exit(1)
-	end
-end
-
-print("connecting to " .. server_ip .. ":" .. server_port)
-
-assert(udp:setpeername(server_ip, server_port))
-
-assert(udp:send(ctrl_msg_token()))
-
 local hack_known_sequence_numbers = {}
 
 -- @param msg_id integer
 -- @param chunk table
+-- @return boolean `true` if the message is known
 local function on_game_msg(msg_id, chunk, unpacker)
+	if msg_id == GAME_READY_TO_ENTER then
+		print("assume this is ready to enter xd")
+		assert(teeworlds_client.socket:send(enter_game()))
+	else
+		return false
+	end
+	return true
+end
 
+local function on_snap(unpacker)
+	teeworlds_client.ack_game_tick = packer.get_int(unpacker)
+	assert(teeworlds_client.socket:send(msg_input()))
 end
 
 -- @param msg_id integer
 -- @param chunk table
+-- @return boolean `true` if the message is known
 local function on_system_msg(msg_id, chunk, unpacker)
 	if msg_id == SYS_CON_READY then
-		print("XXXXXXXXXXXXXX READY")
+		print("got motd, server settings and con ready")
+		assert(teeworlds_client.socket:send(start_info()))
 	elseif msg_id == SYS_SNAP then
 		print("oh snap")
-		teeworlds_client.ack_game_tick = packer.get_int(unpacker)
+		on_snap(unpacker)
 	elseif msg_id == SYS_SNAP_EMPTY then
 		print("oh snap (empty)")
-		teeworlds_client.ack_game_tick = packer.get_int(unpacker)
+		on_snap(unpacker)
 	elseif msg_id == SYS_SNAP_SINGLE then
 		print("oh snap (single)")
-		teeworlds_client.ack_game_tick = packer.get_int(unpacker)
+		on_snap(unpacker)
+	elseif msg_id == SYS_MAP_CHANGE then
+		print("got map change sending ready")
+		assert(teeworlds_client.socket:send(ready()))
 	else
 		print("unknown system msg " .. msg_id)
+		return false
 	end
+	return true
 end
 
 -- @param chunk table
+-- @return boolean `true` if the message is known
 local function on_message(chunk)
 	-- print("got message vital=" .. tostring(chunk.header.flags.vital) .. " size=" .. chunk.header.size .. " data=" .. base.str_hex(chunk.data))
 	if chunk.header.flags.vital then
@@ -274,16 +269,16 @@ local function on_message(chunk)
 		hack_known_sequence_numbers[chunk.header.seq] = true
 	end
 
-	local msg_id = chunk.data:byte(1)
+	local unpacker = packer.reset(chunk.data)
+	local msg_id = packer.get_int(unpacker)
 	local sys = bits.bit_and(msg_id, 1) ~= 0
 	msg_id = bits.rshift(msg_id, 1)
 	-- print("sys=" .. tostring(sys) .. " msg_id=" .. msg_id)
-	local unpacker = packer.reset(chunk.data)
 
 	if sys == true then
-		on_system_msg(msg_id, chunk, unpacker)
+		return on_system_msg(msg_id, chunk, unpacker)
 	else
-		on_game_msg(msg_id, chunk, unpacker)
+		return on_game_msg(msg_id, chunk, unpacker)
 	end
 end
 
@@ -305,10 +300,10 @@ local function on_data(data)
 		if ctrl == CTRL_TOKEN then
 			teeworlds_client.server_token = packet.payload:sub(2)
 			print("got token: " .. base.str_hex(teeworlds_client.server_token))
-			assert(udp:send(ctrl_connect()))
+			assert(teeworlds_client.socket:send(ctrl_connect()))
 		elseif ctrl == CTRL_ACCEPT then
 			print("got accept")
-			assert(udp:send(version_and_password()))
+			assert(teeworlds_client.socket:send(version_and_password()))
 		elseif ctrl == CTRL_CLOSE then
 			io.write("got disconnect from server")
 			local reason = packet.payload:sub(2)
@@ -323,39 +318,63 @@ local function on_data(data)
 		local messages = chunks.get_all_chunks(packet.payload)
 		-- print("payload: " .. base.str_hex(packet.payload))
 		-- print("messages " .. #messages)
+		local known = false
 		for _, msg in ipairs(messages) do
-			on_message(msg)
+			if on_message(msg) == true then
+				known = true
+			end
 		end
 
-		local hack_chunk_header = packet.payload:sub(2, 4)
-		-- print("chunk headrer: " .. base.str_hex(hack_chunk_header))
-		if hack_chunk_header == string.char(0x3A, 0x01, 0x05) then
-			print("got map change sending ready")
-			assert(udp:send(ready()))
-		elseif  hack_chunk_header == string.char(0x02, 0x02, 0x02) then
-			print("got motd, server settings and con ready")
-			assert(udp:send(start_info()))
-		elseif  hack_chunk_header == string.char(0x01, 0x05, 0x16) then
-			print("assume this is ready to enter xd")
-			assert(udp:send(enter_game()))
-		else
-			-- print("unknown msg just respond with keepalive lmao")
-			-- assert(udp:send(build_packet({string.char(CTRL_KEEP_ALIVE)}, true)))
-			assert(udp:send(msg_input()))
+		if known == false then
+			print("got packet without any known messages sending keepalive")
+			assert(teeworlds_client.socket:send(build_packet({string.char(CTRL_KEEP_ALIVE)}, true)))
 		end
 	end
 	-- needed for neovim
 	io.flush()
 end
 
+local function connect(client, ip, port)
+	-- client.socket = assert(socket.udp())
+
+	client.socket:settimeout(1)
+	assert(client.socket:setsockname("*", 0))
+
+	print("connecting to " .. ip .. ":" .. port)
+	assert(client.socket:setpeername(ip, port))
+	assert(client.socket:send(ctrl_msg_token()))
+end
+
+
+local server_ip = "127.0.0.1"
+local server_port = 8303
+
+if arg[1] ~= nil then
+	local cmd = arg[1]
+	if base.str_starts_with(cmd, "connect ") == true then
+		local full_ip = base.str_sep(cmd, " ")[2]
+		server_ip = base.str_sep(full_ip, ":")[1]
+		local port_num = tonumber(base.str_sep(full_ip, ":")[2])
+		if port_num == nil then
+			print("invalid port")
+			os.exit(1)
+		end
+		server_port = port_num
+	else
+		print("unknown command " .. cmd)
+		os.exit(1)
+	end
+end
+connect(teeworlds_client, server_ip, server_port)
+
 signal.signal(signal.SIGINT, function(signum)
 	io.write("got SIGINT sending disconect ...\n")
-	assert(udp:send(build_packet({string.char(CTRL_CLOSE)}, true)))
+	assert(teeworlds_client.socket:send(build_packet({string.char(CTRL_CLOSE)}, true)))
 	os.exit(128 + signum)
 end)
 
 while true do
-	local data = udp:receive()
+	local data = teeworlds_client.socket:receive()
 	if data ~= nil then
 		on_data(data)
 	end
