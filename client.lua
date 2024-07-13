@@ -103,6 +103,7 @@ local function ctrl_connect()
 end
 
 local function version_and_password()
+	teeworlds_client.sequence = teeworlds_client.sequence + 1
 	local msg = string.char(
 		0x40, 0x28, 0x01, 0x03, 0x30, 0x2E, 0x37, 0x20, 0x38,
 		0x30, 0x32, 0x66, 0x31, 0x62, 0x65, 0x36, 0x30, 0x61,
@@ -114,6 +115,7 @@ local function version_and_password()
 end
 
 local function ready()
+	teeworlds_client.sequence = teeworlds_client.sequence + 1
 	local msg = string.char(
 		0x40, 0x01, 0x02, 0x25
 	)
@@ -121,6 +123,7 @@ local function ready()
 end
 
 local function start_info()
+	teeworlds_client.sequence = teeworlds_client.sequence + 1
 	local msg = string.char(
 		0x41, 0x19, 0x03, 0x36, 0x6E, 0x61, 0x6D, 0x65, 0x6C, 0x65, 0x73, 0x73,
 		0x20, 0x74, 0x65, 0x65, 0x00, 0x00, 0x40, 0x73, 0x70, 0x69, 0x6B, 0x79,
@@ -135,10 +138,17 @@ local function start_info()
 end
 
 local function enter_game()
-	local msg = string.char(
-		0x40, 0x01, 0x04, 0x27
-	)
-	return build_packet({msg})
+	local data = string.char(0x27)
+	teeworlds_client.sequence = teeworlds_client.sequence + 1
+	local header = {
+		flags = {
+			vital = true,
+			resend = false,
+		},
+		seq = teeworlds_client.sequence,
+		size = #data
+	}
+	return build_packet({chunks.pack({header = header, data = data})})
 end
 
 local socket = require("socket")

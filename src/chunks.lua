@@ -5,6 +5,56 @@ local base = require("src/base")
 CHUNKFLAG_VITAL = 1
 CHUNKFLAG_RESEND = 2
 
+-- @param chunk table { header, data }
+-- @return string
+local function pack(chunk)
+	assert(chunk.header, "missing chunk header")
+	assert(chunk.data, "missing chunk data")
+
+	-- @type integer[]
+	local bytes = {}
+
+	local flags_int = 0
+	if chunk.header.flags.vital then
+		flags_int = bits.bit_or(flags_int, CHUNKFLAG_VITAL)
+	end
+	if chunk.header.flags.resend then
+		flags_int = bits.bit_or(flags_int, CHUNKFLAG_RESEND)
+	end
+	local b1 = bits.lshift(bits.bit_and(flags_int, 0x03), 6)
+	local b2 = bits.bit_and(bits.rshift(chunk.header.size, 6), 0x3F)
+	bytes[#bytes+1] = bits.bit_or(b1, b2)
+	bytes[#bytes+1] = bits.bit_and(chunk.header.size, 0x03F)
+
+	if chunk.header.flags.vital == true then
+		bytes[#bytes] = bits.bit_or(
+			bytes[#bytes],
+			bits.bit_and(bits.rshift(chunk.header.seq, 2), 0xC0)
+		)
+		bytes[#bytes+1] = bits.bit_and(chunk.header.seq, 0xff)
+	end
+
+	local res = ""
+	for _, byte in ipairs(bytes) do
+		res = res .. string.char(byte)
+	end
+	return res .. chunk.data
+end
+
+-- TODO: move tests to spec/ directory
+local c1 = {
+	header = {
+		flags = {
+			vital = true,
+			resend = false
+		},
+		size = 2,
+		seq = 1
+	},
+	data = string.char(0xff, 0xff)
+}
+assert(pack(c1) == string.char(0x40, 0x02, 0x01, 0xFF, 0xFF))
+
 -- @param data string
 -- @return table
 local function unpack_header(data)
@@ -98,5 +148,5 @@ local msg = string.char(
 -- print(t.print(chunk))
 assert(#get_all_chunks(msg) == 3)
 
-return { unpack_header = unpack_header, get_all_chunks = get_all_chunks }
+return { unpack_header = unpack_header, pack = pack, get_all_chunks = get_all_chunks }
 
