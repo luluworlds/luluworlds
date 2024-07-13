@@ -38,6 +38,7 @@ SYS_SNAP_SMALL = 9
 
 SYS_ENTER_GAME = string.char(0x27)
 SYS_INPUT = string.char(0x29)
+SYS_INPUT_TIMING = 10
 
 GAME_READY_TO_ENTER = 8
 
@@ -61,6 +62,7 @@ local teeworlds_client = {
 
 	-- snapshot stuff
 	ack_game_tick = -1,
+	num_received_snapshots = 0,
 
 	-- udp socket
 	socket = assert(socket.udp()),
@@ -238,6 +240,7 @@ end
 
 local function on_snap(unpacker)
 	teeworlds_client.ack_game_tick = packer.get_int(unpacker)
+	teeworlds_client.num_received_snapshots = teeworlds_client.num_received_snapshots + 1
 	assert(teeworlds_client.socket:send(msg_input()))
 end
 
@@ -249,17 +252,25 @@ local function on_system_msg(msg_id, chunk, unpacker)
 		print("got motd, server settings and con ready")
 		assert(teeworlds_client.socket:send(start_info()))
 	elseif msg_id == SYS_SNAP then
-		print("oh snap")
+		if teeworlds_client.num_received_snapshots < 3 then
+			print("oh snap")
+		end
 		on_snap(unpacker)
 	elseif msg_id == SYS_SNAP_EMPTY then
-		print("oh snap (empty)")
+		if teeworlds_client.num_received_snapshots < 3 then
+			print("oh snap (empty)")
+		end
 		on_snap(unpacker)
 	elseif msg_id == SYS_SNAP_SINGLE then
-		print("oh snap (single)")
+		if teeworlds_client.num_received_snapshots < 3 then
+			print("oh snap (single)")
+		end
 		on_snap(unpacker)
 	elseif msg_id == SYS_MAP_CHANGE then
 		print("got map change sending ready")
 		assert(teeworlds_client.socket:send(ready()))
+	elseif msg_id == SYS_INPUT_TIMING then
+		-- who dis? new number
 	else
 		print("unknown system msg " .. msg_id)
 		return false
