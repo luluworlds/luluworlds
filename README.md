@@ -18,3 +18,10 @@ luarocks install luaposix
 lua client.lua "connect localhost:8303"
 ```
 
+
+## tests
+
+```
+lua spec/*.lua
+```
+

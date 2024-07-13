@@ -1,6 +1,4 @@
 local bits = require("src/bits")
-local t = require("src/table")
-local base = require("src/base")
 
 CHUNKFLAG_VITAL = 1
 CHUNKFLAG_RESEND = 2
@@ -40,20 +38,6 @@ local function pack(chunk)
 	end
 	return res .. chunk.data
 end
-
--- TODO: move tests to spec/ directory
-local c1 = {
-	header = {
-		flags = {
-			vital = true,
-			resend = false
-		},
-		size = 2,
-		seq = 1
-	},
-	data = string.char(0xff, 0xff)
-}
-assert(pack(c1) == string.char(0x40, 0x02, 0x01, 0xFF, 0xFF))
 
 -- @param data string
 -- @return table
@@ -112,41 +96,12 @@ local function get_all_chunks(data)
 			header = header,
 			data = data:sub(header_size + 1, chunk_size)
 		}
-		-- print("chunk=" .. num_chunks .. "  data=" .. base.str_hex(chunks[num_chunks].data))
 		num_chunks = num_chunks + 1
 
 		data = data:sub(chunk_size + 1)
 	end
-
-	-- chunks[1] = 2
-	-- chunks[2] = 2
-	-- chunks[3] = 2
-
-
 	return chunks
 end
-
-assert(#get_all_chunks(string.char(0x00)) == 0)
-
-assert(unpack_header(string.char(0x40, 0x01, 0x01)).flags.vital == true)
-assert(unpack_header(string.char(0x40, 0x01, 0x01)).flags.resend == false)
-assert(unpack_header(string.char(0x40, 0x01, 0x01)).size == 1)
-assert(unpack_header(string.char(0x40, 0x01, 0x01)).seq == 1)
-
-assert(unpack_header(string.char(0x40, 0x03, 0x01)).size == 3)
-
--- game.sv_vote_clear_options, game.sv_tune_params, game.sv_ready_to_enter
-local msg = string.char(
-	0x40, 0x01, 0x05, 0x16, 0x41, 0x05, 0x06, 0x0c, 0xa8, 0x0f, 0x88, 0x03, 0x32, 0xa8, 0x14,
-	0xb0, 0x12, 0xb4, 0x07, 0x96, 0x02, 0x9f, 0x01, 0xb0, 0xd1, 0x04, 0x80, 0x7d, 0xac, 0x04, 0x9c,
-	0x17, 0x32, 0x98, 0xdb, 0x06, 0x80, 0xb5, 0x18, 0x8c, 0x02, 0xbd, 0x01, 0xa0, 0xed, 0x1a, 0x88,
-	0x03, 0xbd, 0x01, 0xb8, 0xc8, 0x21, 0x90, 0x01, 0x14, 0xbc, 0x0a, 0xa0, 0x9a, 0x0c, 0x88, 0x03,
-	0x80, 0xe2, 0x09, 0x98, 0xea, 0x01, 0xa4, 0x01, 0x00, 0xa4, 0x01, 0xa4, 0x01, 0x40, 0x01, 0x07,
-	0x10
-)
--- local chunk = get_all_chunks(msg)[1]
--- print(t.print(chunk))
-assert(#get_all_chunks(msg) == 3)
 
 return { unpack_header = unpack_header, pack = pack, get_all_chunks = get_all_chunks }
 
