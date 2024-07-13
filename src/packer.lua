@@ -1,4 +1,5 @@
 local bits = require("src/bits")
+local base = require("src/base")
 
 -- @param data string
 -- @return packer table { data, index }
@@ -89,6 +90,8 @@ assert(pack_int(0) == string.char(0))
 assert(pack_int(1) == string.char(1))
 assert(pack_int(2) == string.char(2))
 assert(pack_int(127) == string.char(0xBF, 0x01))
+-- -- verified with teeworlds-go
+assert(pack_int(-200) == string.char(0xC7, 0x03))
 
 local packer = reset(string.char(0xFF, 0x01))
 assert(get_int(packer) == -128)
