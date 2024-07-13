@@ -7,6 +7,7 @@
 local socket = require("socket")
 
 local signal = require("posix.signal")
+local getch = require("lua-getch")
 
 -- cd huffman
 -- sudo luarocks make
@@ -17,6 +18,7 @@ local chunks = require("src/chunks")
 local twpacket = require("src/packet")
 local bits = require("src/bits")
 local packer = require("src/packer")
+-- local t = require("src/table")
 
 CTRL_KEEP_ALIVE = 0x00
 CTRL_CONNECT = 0x01
@@ -61,7 +63,15 @@ local teeworlds_client = {
 	ack_game_tick = -1,
 
 	-- udp socket
-	socket = assert(socket.udp())
+	socket = assert(socket.udp()),
+
+	-- teeworlds stuff
+	input = {
+		direction = 0,
+		jump = 0,
+		hook = 0,
+		fire = 0,
+	},
 }
 
 -- @param messages table of strings with fully packed messages (with chunk header)
@@ -192,12 +202,12 @@ local function msg_input()
 		packer.pack_int(teeworlds_client.ack_game_tick) ..
 		packer.pack_int(teeworlds_client.ack_game_tick + 1) .. -- prediction tick
 		string.char(0x28) ..
-		packer.pack_int(1) .. -- direction
-		packer.pack_int(0) .. -- target x
-		packer.pack_int(0) .. -- target y
-		packer.pack_int(0) .. -- jump
-		packer.pack_int(0) .. -- fire
-		packer.pack_int(0) .. -- hook
+		packer.pack_int(teeworlds_client.input.direction) .. -- direction
+		packer.pack_int(200) .. -- target x
+		packer.pack_int(-200) .. -- target y
+		packer.pack_int(teeworlds_client.input.jump) .. -- jump
+		packer.pack_int(teeworlds_client.input.fire) .. -- fire
+		packer.pack_int(teeworlds_client.input.hook) .. -- hook
 		packer.pack_int(0) .. -- player flags
 		packer.pack_int(0) .. -- wanted weapon
 		packer.pack_int(0) .. -- next weapon
@@ -286,11 +296,23 @@ end
 -- @param data string
 local function on_data(data)
 	-- print("INCOMING DATA: " .. base.str_hex(data))
+	local packet = twpacket.unpack_packet(data)
+	-- print(t.print(packet))
+	if packet.header.flags.resend == true then
+		-- TODO: this is nasty we should actually resend
+		--       we drop our own vital packets and decrement the sequence number
+		--       so the server thinks it got all the packets and stops requesting resends
+		teeworlds_client.sequence = teeworlds_client.sequence - 1
+	end
 	if #data < 8 then
-		print("ignoring too short packet")
+		if packet.header.flags.resend == true then
+			print("got resend request packet without payload")
+			assert(teeworlds_client.socket:send(build_packet({string.char(CTRL_KEEP_ALIVE)}, true)))
+			return
+		end
+		print("ignoring too short packet!!!! this should not happen!")
 		return
 	end
-	local packet = twpacket.unpack_packet(data)
 	if packet.header.flags.compression == true then
 		packet.payload = huffman.decompress(packet.payload, #packet.payload)
 	end
@@ -368,15 +390,103 @@ if arg[1] ~= nil then
 end
 connect(teeworlds_client, server_ip, server_port)
 
-signal.signal(signal.SIGINT, function(signum)
-	io.write("got SIGINT sending disconect ...\n")
+local function on_shutdown()
+	io.write("Quitting. Sending disconect ...\n")
 	assert(teeworlds_client.socket:send(build_packet({string.char(CTRL_CLOSE)}, true)))
+
+	-- restore old terminal mode
+	getch.restore_mode()
+
+	-- enter line-buffered mode
+	io.stdin:setvbuf("line")
+
+	-- set blocking mode
+	getch.set_nonblocking(io.stdin, false)
+end
+
+signal.signal(signal.SIGINT, function(signum)
+	on_shutdown()
 	os.exit(128 + signum)
 end)
+
+
+-- function love.draw()
+--     love.graphics.print("Hello World", 400, 300)
+-- end
+-- 
+-- function love.update(dt)
+-- 	teeworlds_client.input.hook = 0
+-- 	teeworlds_client.input.jump = 0
+-- 	teeworlds_client.input.direction = 0
+-- 
+-- 	if love.keyboard.isDown("space") then
+-- 		print("jump")
+-- 		teeworlds_client.input.jump = 1
+-- 	end
+-- 
+-- 	if love.keyboard.isDown('a') then
+-- 		print("left")
+-- 		teeworlds_client.input.direction = -1
+-- 	end
+-- 
+-- 	if love.keyboard.isDown('d') then
+-- 		print("right")
+-- 		teeworlds_client.input.direction = 1
+-- 	end
+-- end
+
+KEY_LEFT = 97
+KEY_RIGHT = 100
+KEY_SPACE = 32
+KEY_W = 119
+KEY_S = 115
+
+-- disable buffering through libc
+io.stdin:setvbuf("no")
+
+-- set raw(non-linebuffered) mode, disable automatic echo of characters
+getch.set_raw_mode(io.stdin)
+
+-- set the non-blocking mode for stdin
+getch.set_nonblocking(io.stdin, true)
 
 while true do
 	local data = teeworlds_client.socket:receive()
 	if data ~= nil then
 		on_data(data)
+	end
+
+	local char = getch.get_char(io.stdin)
+
+	-- quit on q key
+	if (char==("q"):byte()) or (char==("Q"):byte()) then
+		on_shutdown()
+		break
+	end
+
+	teeworlds_client.input.hook = 1
+	teeworlds_client.input.jump = 0
+	teeworlds_client.input.fire = 0
+	teeworlds_client.input.direction = 0
+
+	if char == KEY_LEFT then
+		print("left")
+		teeworlds_client.input.direction = -1
+	end
+	if char == KEY_RIGHT then
+		print("right")
+		teeworlds_client.input.direction = 1
+	end
+	if char == KEY_SPACE then
+		print("jump")
+		teeworlds_client.input.jump = 1
+	end
+	if char == KEY_W then
+		print("hook")
+		teeworlds_client.input.hook = 0
+	end
+	if char == KEY_S then
+		print("fire")
+		teeworlds_client.input.fire = teeworlds_client.input.fire + 1
 	end
 end
