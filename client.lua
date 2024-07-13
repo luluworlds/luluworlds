@@ -4,6 +4,8 @@
 -- apt install lua5.2 lua-socket
 --
 
+local socket = require("socket")
+
 -- cd huffman
 -- sudo luarocks make
 local huffman = require("huffman")
@@ -30,6 +32,10 @@ SYS_SNAP_EMPTY = 7
 SYS_SNAP_SINGLE = 8
 SYS_SNAP_SMALL = 9
 
+SYS_ENTER_GAME = string.char(0x27)
+SYS_INPUT = string.char(0x29)
+
+-- @type table<string, (string | integer)>
 local teeworlds_client = {
 	-- 4 byte security token
 	server_token = string.char(0xFF, 0xFF, 0xFF, 0xFF),
@@ -137,21 +143,65 @@ local function start_info()
 	return build_packet({msg})
 end
 
-local function enter_game()
-	local data = string.char(0x27)
-	teeworlds_client.sequence = teeworlds_client.sequence + 1
-	local header = {
-		flags = {
+-- @param client teeworlds_client table
+-- @param msg string containing packed msg id and system flag
+-- @param payload string message payload without its msg id
+-- @param header chunk header table can contain nil values will be auto filled
+-- @return string
+local function pack_chunk(client, msg, payload, header)
+	assert(type(client) == "table", "client has to be table")
+	assert(type(msg) == "string", "msg has to be string")
+	if payload == nil then
+		payload = ""
+	end
+	assert(type(payload) == "string", "payload has to be string")
+	local data = msg .. payload
+	if header == nil then
+		header = {}
+	end
+	if header.flags == nil then
+		header.flags = {
 			vital = true,
-			resend = false,
-		},
-		seq = teeworlds_client.sequence,
-		size = #data
-	}
-	return build_packet({chunks.pack({header = header, data = data})})
+			resend = false
+		}
+	end
+	if header.flags.vital == true then
+		client.sequence = client.sequence + 1
+	end
+	if header.seq == nil then
+		header.seq = client.sequence
+	end
+	if header.size == nil then
+		header.size = #data
+	end
+	return chunks.pack({header = header, data = data})
 end
 
-local socket = require("socket")
+-- @return string
+local function msg_input()
+	local data =
+		packer.pack_int(teeworlds_client.ack_game_tick) ..
+		packer.pack_int(teeworlds_client.ack_game_tick + 1) .. -- prediction tick
+		string.char(0x28) ..
+		packer.pack_int(1) .. -- direction
+		packer.pack_int(0) .. -- target x
+		packer.pack_int(0) .. -- target y
+		packer.pack_int(0) .. -- jump
+		packer.pack_int(0) .. -- fire
+		packer.pack_int(0) .. -- hook
+		packer.pack_int(0) .. -- player flags
+		packer.pack_int(0) .. -- wanted weapon
+		packer.pack_int(0) .. -- next weapon
+		packer.pack_int(0) .. -- prev weapon
+		packer.pack_int(0) -- ping correction
+	return build_packet({pack_chunk(teeworlds_client, SYS_INPUT, data)})
+end
+
+-- @return string
+local function enter_game()
+	return build_packet({pack_chunk(teeworlds_client, SYS_ENTER_GAME)})
+end
+
 local udp = assert(socket.udp())
 
 udp:settimeout(1)
@@ -265,7 +315,8 @@ local function on_data(data)
 			assert(udp:send(enter_game()))
 		else
 			-- print("unknown msg just respond with keepalive lmao")
-			assert(udp:send(build_packet({string.char(CTRL_KEEP_ALIVE)}, true)))
+			-- assert(udp:send(build_packet({string.char(CTRL_KEEP_ALIVE)}, true)))
+			assert(udp:send(msg_input()))
 		end
 	end
 	-- needed for neovim

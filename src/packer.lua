@@ -99,5 +99,5 @@ assert(get_int(packer) == 2)
 assert(get_int(packer) == -128)
 
 
-return { reset = reset, get_int = get_int, byte = byte, pop_byte = pop_byte }
+return { reset = reset, get_int = get_int, pack_int = pack_int, byte = byte, pop_byte = pop_byte }
 
