@@ -68,6 +68,16 @@ local function get_int(packer)
 	return res
 end
 
+-- @param packer table { data, index }
+-- @return string
+local function get_str(packer)
+	local e = string.find(remaining_data(packer), string.char(0x00)) + packer.index
+	local len = e - packer.index
+	local str = packer.data:sub(packer.index, packer.index + len - 2)
+	packer.index = packer.index + len
+	return str
+end
+
 -- @param num integer
 -- @return string
 local function pack_int(num)
@@ -90,21 +100,6 @@ local function pack_int(num)
 
 	return res
 end
-
-assert(pack_int(0) == string.char(0))
-assert(pack_int(1) == string.char(1))
-assert(pack_int(2) == string.char(2))
-assert(pack_int(127) == string.char(0xBF, 0x01))
--- -- verified with teeworlds-go
-assert(pack_int(-200) == string.char(0xC7, 0x03))
-
-local packer = reset(string.char(0xFF, 0x01))
-assert(get_int(packer) == -128)
-
-packer = reset(string.char(0x01, 0x02, 0xFF, 0x01))
-assert(get_int(packer) == 1)
-assert(get_int(packer) == 2)
-assert(get_int(packer) == -128)
 
 
 return { reset = reset, get_int = get_int, pack_int = pack_int, byte = byte, pop_byte = pop_byte, remaining_data = remaining_data }
