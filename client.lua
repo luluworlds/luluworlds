@@ -6,6 +6,8 @@
 
 local socket = require("socket")
 
+local signal = require("posix.signal")
+
 -- cd huffman
 -- sudo luarocks make
 local huffman = require("huffman")
@@ -206,7 +208,30 @@ local udp = assert(socket.udp())
 
 udp:settimeout(1)
 assert(udp:setsockname("*", 0))
-assert(udp:setpeername("127.0.0.1", 8303))
+
+local server_ip = "127.0.0.1"
+local server_port = 8303
+
+if arg[1] ~= nil then
+	local cmd = arg[1]
+	if base.str_starts_with(cmd, "connect ") == true then
+		local full_ip = base.str_sep(cmd, " ")[2]
+		server_ip = base.str_sep(full_ip, ":")[1]
+		local port_num = tonumber(base.str_sep(full_ip, ":")[2])
+		if port_num == nil then
+			print("invalid port")
+			os.exit(1)
+		end
+		server_port = port_num
+	else
+		print("unknown command " .. cmd)
+		os.exit(1)
+	end
+end
+
+print("connecting to " .. server_ip .. ":" .. server_port)
+
+assert(udp:setpeername(server_ip, server_port))
 
 assert(udp:send(ctrl_msg_token()))
 
@@ -322,6 +347,12 @@ local function on_data(data)
 	-- needed for neovim
 	io.flush()
 end
+
+signal.signal(signal.SIGINT, function(signum)
+	io.write("got SIGINT sending disconect ...\n")
+	assert(udp:send(build_packet({string.char(CTRL_CLOSE)}, true)))
+	os.exit(128 + signum)
+end)
 
 while true do
 	local data = udp:receive()

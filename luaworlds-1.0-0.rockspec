@@ -11,7 +11,8 @@ description = {
 }
 dependencies = {
   "lua >= 5.1, < 5.3",
-  "bitop-lua >= 1.0"
+  "bitop-lua >= 1.0",
+  "luaposix >= 36.2.1"
 }
 build = {
   type = "builtin",

@@ -6,9 +6,10 @@ cd huffman
 luarocks make
 
 luarocks install bitop-lua
+luarocks install luaposix
 ```
 
 ```
-lua client.lua
+lua client.lua "connect localhost:8303"
 ```
 
