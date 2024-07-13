@@ -213,7 +213,7 @@ local function msg_input()
 		packer.pack_int(0) .. -- next weapon
 		packer.pack_int(0) .. -- prev weapon
 		packer.pack_int(0) -- ping correction
-	return build_packet({pack_chunk(teeworlds_client, SYS_INPUT, data)})
+	return build_packet({pack_chunk(teeworlds_client, SYS_INPUT, data, {flags = { vital = false }})})
 end
 
 -- @return string
@@ -302,7 +302,7 @@ local function on_data(data)
 		-- TODO: this is nasty we should actually resend
 		--       we drop our own vital packets and decrement the sequence number
 		--       so the server thinks it got all the packets and stops requesting resends
-		teeworlds_client.sequence = teeworlds_client.sequence - 1
+		teeworlds_client.sequence = packet.header.ack
 	end
 	if #data < 8 then
 		if packet.header.flags.resend == true then
