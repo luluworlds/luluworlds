@@ -40,6 +40,7 @@ SYS_ENTER_GAME = string.char(0x27)
 SYS_INPUT = string.char(0x29)
 SYS_INPUT_TIMING = 10
 
+GAME_SV_CHAT = 3
 GAME_READY_TO_ENTER = 8
 
 
@@ -232,6 +233,11 @@ local function on_game_msg(msg_id, chunk, unpacker)
 	if msg_id == GAME_READY_TO_ENTER then
 		print("assume this is ready to enter xd")
 		assert(teeworlds_client.socket:send(enter_game()))
+	elseif msg_id == GAME_SV_CHAT then
+		local mode = packer.get_int(unpacker)
+		local client_id = packer.get_int(unpacker)
+		local target_id = packer.get_int(unpacker)
+		print("[chat] " .. packer.remaining_data(unpacker))
 	else
 		return false
 	end

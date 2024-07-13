@@ -24,6 +24,11 @@ local function pop_byte(packer)
 	return b
 end
 
+-- @return string
+local function remaining_data(packer)
+	return packer.data:sub(packer.index)
+end
+
 -- @param packer table { data, index }
 -- @return int
 local function get_int(packer)
@@ -102,5 +107,5 @@ assert(get_int(packer) == 2)
 assert(get_int(packer) == -128)
 
 
-return { reset = reset, get_int = get_int, pack_int = pack_int, byte = byte, pop_byte = pop_byte }
+return { reset = reset, get_int = get_int, pack_int = pack_int, byte = byte, pop_byte = pop_byte, remaining_data = remaining_data }
 
