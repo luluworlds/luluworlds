@@ -10,8 +10,7 @@ sudo apt-get install luarocks
 cd huffman
 luarocks make
 
-luarocks install bitop-lua
-luarocks install luaposix
+luarocks install --only-deps luaworlds-1.0-0.rockspec 
 ```
 
 ```
