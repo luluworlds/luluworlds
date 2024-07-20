@@ -11,7 +11,7 @@ local getch = require("lua-getch")
 
 -- cd huffman
 -- sudo luarocks make
-local huffman = require("huffman")
+local huffman = require("luluman")
 
 local base = require("src/base")
 local chunks = require("src/chunks")

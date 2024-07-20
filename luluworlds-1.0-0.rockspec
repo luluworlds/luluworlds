@@ -14,7 +14,7 @@ dependencies = {
   "bitop-lua >= 1.0",
   "luaposix >= 36.2.1",
   "lua-getch >= 0.0-4",
-  "luluman >= 1.0-2",
+  "luluman >= 2.0-0",
   "luasocket"
 }
 build = {
