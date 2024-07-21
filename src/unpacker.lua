@@ -13,6 +13,8 @@ function Unpacker.new(data)
 	return self
 end
 
+-- @param data string
+-- @return Unpacker
 function Unpacker:reset(o, data)
 	o = o or {}
 	setmetatable(o, self)
@@ -22,20 +24,24 @@ function Unpacker:reset(o, data)
 	return o
 end
 
+-- @return int
 function Unpacker:byte()
 	return self.data:byte(self.index)
 end
 
+-- @return int
 function Unpacker:pop_byte()
 	local b = self.data:byte(self.index)
 	self.index = self.index + 1
 	return b
 end
 
+-- @return string
 function Unpacker:remaining_data()
 	return self.data:sub(self.index)
 end
 
+-- @return int
 function Unpacker:get_int()
 	local sign = bits.bit_and(bits.rshift(self:byte(), 6), 1)
 	local res = bits.bit_and(self:byte(), 0x3F)
@@ -73,6 +79,7 @@ function Unpacker:get_int()
 	return res
 end
 
+-- @return string
 function Unpacker:get_str()
 	local e = string.find(self:remaining_data(), string.char(0x00)) + self.index
 	local len = e - self.index

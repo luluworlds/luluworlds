@@ -18,6 +18,7 @@ local chunks = require("src/chunks")
 local twpacket = require("src/packet")
 local bits = require("src/bits")
 local packer = require("src/packer")
+local Unpacker = require("src/unpacker")
 -- local t = require("src/table")
 
 CTRL_KEEP_ALIVE = 0x00
@@ -229,15 +230,15 @@ local hack_known_sequence_numbers = {}
 -- @param msg_id integer
 -- @param chunk table
 -- @return boolean `true` if the message is known
-local function on_game_msg(msg_id, chunk, unpacker)
+local function on_game_msg(msg_id, _, unpacker)
 	if msg_id == GAME_READY_TO_ENTER then
 		print("assume this is ready to enter xd")
 		assert(teeworlds_client.socket:send(enter_game()))
 	elseif msg_id == GAME_SV_CHAT then
-		local mode = packer.get_int(unpacker)
-		local client_id = packer.get_int(unpacker)
-		local target_id = packer.get_int(unpacker)
-		print("[chat] " .. packer.remaining_data(unpacker))
+		local mode = unpacker:get_int()
+		local client_id = unpacker:get_int()
+		local target_id = unpacker:get_int()
+		print("[chat] " .. unpacker:remaining_data())
 	else
 		return false
 	end
@@ -245,7 +246,7 @@ local function on_game_msg(msg_id, chunk, unpacker)
 end
 
 local function on_snap(unpacker)
-	teeworlds_client.ack_game_tick = packer.get_int(unpacker)
+	teeworlds_client.ack_game_tick = unpacker:get_int()
 	teeworlds_client.num_received_snapshots = teeworlds_client.num_received_snapshots + 1
 	assert(teeworlds_client.socket:send(msg_input()))
 end
@@ -253,7 +254,7 @@ end
 -- @param msg_id integer
 -- @param chunk table
 -- @return boolean `true` if the message is known
-local function on_system_msg(msg_id, chunk, unpacker)
+local function on_system_msg(msg_id, _, unpacker)
 	if msg_id == SYS_CON_READY then
 		print("got motd, server settings and con ready")
 		assert(teeworlds_client.socket:send(start_info()))
@@ -297,8 +298,8 @@ local function on_message(chunk)
 		hack_known_sequence_numbers[chunk.header.seq] = true
 	end
 
-	local unpacker = packer.reset(chunk.data)
-	local msg_id = packer.get_int(unpacker)
+	local unpacker = Unpacker.new(chunk.data)
+	local msg_id = unpacker:get_int()
 	local sys = bits.bit_and(msg_id, 1) ~= 0
 	msg_id = bits.rshift(msg_id, 1)
 	-- print("sys=" .. tostring(sys) .. " msg_id=" .. msg_id)
