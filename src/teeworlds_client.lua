@@ -8,14 +8,14 @@ local socket = require("socket")
 
 local huffman = require("luluman")
 
-local base = require("src/base")
-local chunks = require("src/chunks")
-local twpacket = require("src/packet")
-local bits = require("src/bits")
-local packer = require("src/packer")
-local Unpacker = require("src/unpacker")
-local connection = require("src/connection")
--- local t = require("src/table")
+local base = require("luluworlds.base")
+local chunks = require("luluworlds.chunks")
+local twpacket = require("luluworlds.packet")
+local bits = require("luluworlds.bits")
+local packer = require("luluworlds.packer")
+local Unpacker = require("luluworlds.unpacker")
+local connection = require("luluworlds.connection")
+-- local t = require("luluworlds.table")
 
 CTRL_KEEP_ALIVE = 0x00
 CTRL_CONNECT = 0x01
