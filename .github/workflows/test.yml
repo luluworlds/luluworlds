@@ -43,12 +43,12 @@ jobs:
     - name: Install lua deps (windows)
       if: contains(matrix.os, 'windows')
       run: |
-          luarocks-3.11.1-windows-32/luarocks.exe install --only-deps luluworlds-1.0-0.rockspec
+          luarocks-3.11.1-windows-32/luarocks.exe install --only-deps luluworlds-0.1-0.rockspec
 
     - name: Install lua deps (nix)
       if: contains(matrix.os, 'macOS') || contains(matrix.os, 'ubuntu')
       run: |
-          sudo luarocks install --only-deps luluworlds-1.0-0.rockspec
+          sudo luarocks install --only-deps luluworlds-0.1-0.rockspec
 
     - name: Run tests
       run: |
