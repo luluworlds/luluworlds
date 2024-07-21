@@ -1,5 +1,5 @@
-local bits = require("src/bits")
-local base = require("src/base")
+local bits = require("luluworlds.bits")
+local base = require("luluworlds.base")
 
 PACKETFLAG_CONTROL=1
 PACKETFLAG_RESEND=2

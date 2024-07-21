@@ -1,4 +1,4 @@
-local chunks = require("src/chunks")
+local chunks = require("luluworlds.chunks")
 
 
 local c1 = {

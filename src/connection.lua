@@ -1,5 +1,5 @@
-local twpacket = require("src/packet")
-local chunks = require("src/chunks")
+local twpacket = require("luluworlds.packet")
+local chunks = require("luluworlds.chunks")
 
 -- @param session TeeworldsClient or TeeworldsServer (table with fields peer_token and ack)
 -- @param messages table of strings with fully packed messages (with chunk header)

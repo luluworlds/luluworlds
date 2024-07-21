@@ -1,4 +1,4 @@
-local p = require("src/packer")
+local p = require("luluworlds.packer")
 
 assert(p.pack_int(0) == string.char(0))
 assert(p.pack_int(1) == string.char(1))

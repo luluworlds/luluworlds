@@ -1,10 +1,10 @@
 # luluworlds
 
-A quickly hacked together teeworlds 0.7 client in lua.
+A teeworlds 0.7 client written in lua.
 
 ```
 sudo apt-get install luarocks
-luarocks install --only-deps luluworlds-*.rockspec
+luarocks install luluworlds-scm-0.rockspec
 ```
 
 ```

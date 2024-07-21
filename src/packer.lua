@@ -1,4 +1,4 @@
-local bits = require("src/bits")
+local bits = require("luluworlds.bits")
 
 -- @param num integer
 -- @return string

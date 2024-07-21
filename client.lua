@@ -3,9 +3,9 @@
 local signal = require("posix.signal")
 local getch = require("lua-getch")
 
-local base = require("src/base")
-local connection = require("src/connection")
-local TeeworldsClient = require("src/teeworlds_client")
+local base = require("luluworlds.base")
+local connection = require("luluworlds.connection")
+local TeeworldsClient = require("luluworlds.teeworlds_client")
 
 local server_ip = "127.0.0.1"
 local server_port = 8303

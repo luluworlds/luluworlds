@@ -1,4 +1,4 @@
-local bits = require("src/bits")
+local bits = require("luluworlds.bits")
 
 CHUNKFLAG_VITAL = 1
 CHUNKFLAG_RESEND = 2
