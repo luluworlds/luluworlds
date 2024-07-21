@@ -40,15 +40,15 @@ jobs:
         wget "http://luarocks.github.io/luarocks/releases/luarocks-3.11.1-windows-32.zip" -outfile rocks.zip
         unzip rocks.zip
 
-    - name: Install lua deps (windows)
+    - name: Install (windows)
       if: contains(matrix.os, 'windows')
       run: |
-          luarocks-3.11.1-windows-32/luarocks.exe install --only-deps luluworlds-scm-0.rockspec
+          luarocks-3.11.1-windows-32/luarocks.exe install luluworlds-scm-0.rockspec
 
-    - name: Install lua deps (nix)
+    - name: Install (nix)
       if: contains(matrix.os, 'macOS') || contains(matrix.os, 'ubuntu')
       run: |
-          sudo luarocks install --only-deps luluworlds-scm-0.rockspec
+          sudo luarocks install luluworlds-scm-0.rockspec
 
     - name: Run tests
       run: |
