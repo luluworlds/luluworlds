@@ -1,12 +1,12 @@
 package = "luluworlds"
-version = "1.0-0"
+version = "0.1-0"
 source = {
-  url = "git+https://github.com/ChillerDragon/luaworlds.git"
+  url = "git+https://github.com/ChillerDragon/luluworlds.git"
 }
 description = {
   summary = "teeworlds",
   detailed = "",
-  homepage = "https://github.com/ChillerDragon/luaworlds.git",
+  homepage = "https://github.com/ChillerDragon/luluworlds.git",
   license = "MIT"
 }
 dependencies = {
@@ -20,6 +20,8 @@ dependencies = {
 build = {
   type = "builtin",
   modules = {
-    [ "client" ] = "client.lua"
+    TeeworldsClient = "src/teeworlds_client.lua",
+    connection = "src/connection.lua",
+    Unpacker = "src/unpacker.lua"
   }
 }
