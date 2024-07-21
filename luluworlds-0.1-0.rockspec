@@ -1,13 +1,18 @@
 package = "luluworlds"
+rockspec_format = "3.0"
 version = "0.1-0"
 source = {
-  url = "git+https://github.com/ChillerDragon/luluworlds.git"
+  url = "git+https://github.com/ChillerDragon/luluworlds.git",
+  tag = "0.0-1"
 }
 description = {
-  summary = "teeworlds",
+  summary = "teeworlds network protocol library (client only for now)",
   detailed = "",
+  license = "Zlib",
   homepage = "https://github.com/ChillerDragon/luluworlds.git",
-  license = "MIT"
+  issues_url = "https://github.com/luluworlds/luluworlds/issues",
+  maintainer = "ChillerDragon <chillerdragon@gmail.com>",
+  labels = { "teeworlds", "ddnet", "ddracenetwork", "game", "client", "server", "protocol", "networking", "0.7" }
 }
 dependencies = {
   "lua >= 5.1, < 5.5",
