@@ -3,7 +3,7 @@ rockspec_format = "3.0"
 version = "0.1-0"
 source = {
   url = "git+https://github.com/luluworlds/luluworlds.git",
-  tag = "0.0-1"
+  tag = "0.1-0"
 }
 description = {
   summary = "teeworlds network protocol library (client only for now)",
