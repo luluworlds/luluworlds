@@ -101,6 +101,5 @@ local function pack_int(num)
 	return res
 end
 
-
-return { reset = reset, get_int = get_int, pack_int = pack_int, byte = byte, pop_byte = pop_byte, remaining_data = remaining_data }
+return { reset = reset, get_int = get_int, pack_int = pack_int, byte = byte, pop_byte = pop_byte, remaining_data = remaining_data, get_str = get_str }
 

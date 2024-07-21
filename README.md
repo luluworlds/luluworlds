@@ -7,7 +7,7 @@ This project kinda works on my machine. But it is super messy and incomplete.
 
 ```
 sudo apt-get install luarocks
-luarocks install --only-deps luluworlds-1.0-0.rockspec --local
+luarocks install --only-deps luluworlds-1.0-0.rockspec
 ```
 
 ```
