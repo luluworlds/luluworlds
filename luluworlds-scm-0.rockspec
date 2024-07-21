@@ -34,5 +34,6 @@ build = {
     ["luluworlds.packet"] = "src/packet.lua",
     ["luluworlds.packer"] = "src/packer.lua",
     ["luluworlds.bits"] = "src/bits.lua",
+    ["luluworlds.network"] = "src/network.lua",
   }
 }

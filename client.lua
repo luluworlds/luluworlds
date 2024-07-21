@@ -6,6 +6,7 @@ local getch = require("lua-getch")
 local base = require("luluworlds.base")
 local connection = require("luluworlds.connection")
 local TeeworldsClient = require("luluworlds.teeworlds_client")
+local network = require("luluworlds.network")
 
 local server_ip = "127.0.0.1"
 local server_port = 8303
@@ -37,7 +38,7 @@ local function on_shutdown()
 	-- we never want to crash on shutdown that would abort quitting the client
 	xpcall(
 		function ()
-			client.socket:send(connection.build_packet(client, {string.char(CTRL_CLOSE)}, true))
+			client.socket:send(connection.build_packet(client, {string.char(network.CTRL_CLOSE)}, true))
 		end,
 		function (err)
 			print("failed to disconnect: ", err)

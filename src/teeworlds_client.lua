@@ -15,31 +15,8 @@ local bits = require("luluworlds.bits")
 local packer = require("luluworlds.packer")
 local Unpacker = require("luluworlds.unpacker")
 local connection = require("luluworlds.connection")
+local network = require("luluworlds.network")
 -- local t = require("luluworlds.table")
-
-CTRL_KEEP_ALIVE = 0x00
-CTRL_CONNECT = 0x01
-CTRL_ACCEPT = 0x02
-CTRL_CLOSE = 0x04
-CTRL_TOKEN = 0x05
-
-SYS_INFO = 1
-SYS_MAP_CHANGE = 2
-SYS_MAP_DATA = 3
-SYS_SERVER_INFO = 4
-SYS_CON_READY = 5
-SYS_SNAP = 6
-SYS_SNAP_EMPTY = 7
-SYS_SNAP_SINGLE = 8
-SYS_SNAP_SMALL = 9
-
-SYS_ENTER_GAME = string.char(0x27)
-SYS_INPUT = string.char(0x29)
-SYS_INPUT_TIMING = 10
-
-GAME_SV_CHAT = 3
-GAME_READY_TO_ENTER = 8
-
 
 -- @type table<string, (string | integer)>
 local TeeworldsClient = {
@@ -85,7 +62,7 @@ end
 
 -- @return string
 function TeeworldsClient:ctrl_msg_token()
-	local msg = string.char(CTRL_TOKEN) .. self.token
+	local msg = string.char(network.CTRL_TOKEN) .. self.token
 	for _ = 1, 512, 1 do
 		msg = msg .. string.char(0x00)
 	end
@@ -93,7 +70,7 @@ function TeeworldsClient:ctrl_msg_token()
 end
 
 function TeeworldsClient:ctrl_connect()
-	local msg = string.char(CTRL_CONNECT) .. self.token
+	local msg = string.char(network.CTRL_CONNECT) .. self.token
 	for _ = 1, 512, 1 do
 		msg = msg .. string.char(0x00)
 	end
@@ -153,12 +130,12 @@ function TeeworldsClient:msg_input()
 		packer.pack_int(0) .. -- next weapon
 		packer.pack_int(0) .. -- prev weapon
 		packer.pack_int(0) -- ping correction
-	return connection.build_packet(self, {connection.build_chunk(self, SYS_INPUT, data, {flags = { vital = false }})})
+	return connection.build_packet(self, {connection.build_chunk(self, network.SYS_INPUT, data, {flags = { vital = false }})})
 end
 
 -- @return string
 function TeeworldsClient:enter_game()
-	return connection.build_packet(self, {connection.build_chunk(self, SYS_ENTER_GAME)})
+	return connection.build_packet(self, {connection.build_chunk(self, network.SYS_ENTER_GAME)})
 end
 
 local hack_known_sequence_numbers = {}
@@ -167,10 +144,10 @@ local hack_known_sequence_numbers = {}
 -- @param chunk table
 -- @return boolean `true` if the message is known
 function TeeworldsClient:on_game_msg(msg_id, _, unpacker)
-	if msg_id == GAME_READY_TO_ENTER then
+	if msg_id == network.GAME_READY_TO_ENTER then
 		print("assume this is ready to enter xd")
 		assert(self.socket:send(self:enter_game()))
-	elseif msg_id == GAME_SV_CHAT then
+	elseif msg_id == network.GAME_SV_CHAT then
 		local mode = unpacker:get_int()
 		local client_id = unpacker:get_int()
 		local target_id = unpacker:get_int()
@@ -191,28 +168,28 @@ end
 -- @param chunk table
 -- @return boolean `true` if the message is known
 function TeeworldsClient:on_system_msg(msg_id, _, unpacker)
-	if msg_id == SYS_CON_READY then
+	if msg_id == network.SYS_CON_READY then
 		print("got motd, server settings and con ready")
 		assert(self.socket:send(self:start_info()))
-	elseif msg_id == SYS_SNAP then
+	elseif msg_id == network.SYS_SNAP then
 		if self.num_received_snapshots < 3 then
 			print("oh snap")
 		end
 		self:on_snap(unpacker)
-	elseif msg_id == SYS_SNAP_EMPTY then
+	elseif msg_id == network.SYS_SNAP_EMPTY then
 		if self.num_received_snapshots < 3 then
 			print("oh snap (empty)")
 		end
 		self:on_snap(unpacker)
-	elseif msg_id == SYS_SNAP_SINGLE then
+	elseif msg_id == network.SYS_SNAP_SINGLE then
 		if self.num_received_snapshots < 3 then
 			print("oh snap (single)")
 		end
 		self:on_snap(unpacker)
-	elseif msg_id == SYS_MAP_CHANGE then
+	elseif msg_id == network.SYS_MAP_CHANGE then
 		print("got map change sending ready")
 		assert(self.socket:send(self:ready()))
-	elseif msg_id == SYS_INPUT_TIMING then
+	elseif msg_id == network.SYS_INPUT_TIMING then
 		-- who dis? new number
 	else
 		print("unknown system msg " .. msg_id)
@@ -261,7 +238,7 @@ function TeeworldsClient:on_data(data)
 	if #data < 8 then
 		if packet.header.flags.resend == true then
 			print("got resend request packet without payload")
-			assert(self.socket:send(connection.build_packet(self, {string.char(CTRL_KEEP_ALIVE)}, true)))
+			assert(self.socket:send(connection.build_packet(self, {string.char(network.CTRL_KEEP_ALIVE)}, true)))
 			return
 		end
 		print("ignoring too short packet!!!! this should not happen!")
@@ -274,14 +251,14 @@ function TeeworldsClient:on_data(data)
 	if data:byte(1) == 0x04 then -- control message
 		local ctrl = packet.payload:byte(1)
 		print("got ctrl: " .. ctrl)
-		if ctrl == CTRL_TOKEN then
+		if ctrl == network.CTRL_TOKEN then
 			self.peer_token = packet.payload:sub(2)
 			print("got token: " .. base.str_hex(self.peer_token))
 			assert(self.socket:send(self:ctrl_connect()))
-		elseif ctrl == CTRL_ACCEPT then
+		elseif ctrl == network.CTRL_ACCEPT then
 			print("got accept")
 			assert(self.socket:send(self:version_and_password()))
-		elseif ctrl == CTRL_CLOSE then
+		elseif ctrl == network.CTRL_CLOSE then
 			io.write("got disconnect from server")
 			local reason = packet.payload:sub(2)
 			if #reason > 0 then
@@ -304,7 +281,7 @@ function TeeworldsClient:on_data(data)
 
 		if known == false then
 			print("got packet without any known messages sending keepalive")
-			assert(self.socket:send(connection.build_packet(self, {string.char(CTRL_KEEP_ALIVE)}, true)))
+			assert(self.socket:send(connection.build_packet(self, {string.char(network.CTRL_KEEP_ALIVE)}, true)))
 		end
 	end
 	-- needed for neovim
