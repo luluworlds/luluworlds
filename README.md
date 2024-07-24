@@ -23,7 +23,7 @@ local network = require("luluworlds.network")
 client:connect("127.0.0.1", 8303)
 
 local function on_shutdown()
-	io.write("Quitting. Sending disconect ...\n")
+	io.write("Quitting. Sending disconnect ...\n")
 	xpcall(
 		function ()
 			client.socket:send(connection.build_packet(client, {string.char(network.CTRL_CLOSE)}, true))
