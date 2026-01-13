@@ -35,7 +35,7 @@ local client = TeeworldsClient.new()
 client:connect(server_ip, server_port)
 
 local function on_shutdown()
-	io.write("Quitting. Sending disconect ...\n")
+	io.write("Quitting. Sending disconnect ...\n")
 
 	-- swallow errors
 	-- we never want to crash on shutdown that would abort quitting the client
