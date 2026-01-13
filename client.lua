@@ -1,12 +1,25 @@
 --!strict
 
-local signal = require("posix.signal")
 local getch = require("lua-getch")
 
 local base = require("luluworlds.base")
 local connection = require("luluworlds.connection")
 local TeeworldsClient = require("luluworlds.teeworlds_client")
 local network = require("luluworlds.network")
+
+local function require_or_nil(module)
+	local res = pcall(function ()
+		require(module)
+	end, module)
+	if res then
+		return require(module)
+	end
+	return nil
+end
+local signal = require_or_nil("posix.signal")
+if not(signal) then
+	print("install posix.signal to disconnect on CTRL+C")
+end
 
 local server_ip = "127.0.0.1"
 local server_port = 8303
@@ -55,10 +68,12 @@ local function on_shutdown()
 	getch.set_nonblocking(io.stdin, false)
 end
 
-signal.signal(signal.SIGINT, function(signum)
-	on_shutdown()
-	os.exit(128 + signum)
-end)
+if signal then
+	signal.signal(signal.SIGINT, function(signum)
+		on_shutdown()
+		os.exit(128 + signum)
+	end)
+end
 
 
 -- function love.draw()
