@@ -1,5 +1,15 @@
 -- local t = require("src/table")
 
+local function require_or_nil(module)
+	local res = pcall(function ()
+		require(module)
+	end, module)
+	if res then
+		return require(module)
+	end
+	return nil
+end
+
 -- @param data string
 -- @return string
 local function str_hex(data)
@@ -66,5 +76,10 @@ end
 assert(str_starts_with("foo bar", "foo") == true)
 assert(str_starts_with("foo bar", "bar") == false)
 
-return { str_hex = str_hex, str_sep = str_sep, str_starts_with = str_starts_with }
+return {
+	str_hex = str_hex,
+	str_sep = str_sep,
+	str_starts_with = str_starts_with,
+	require_or_nil = require_or_nil
+}
 

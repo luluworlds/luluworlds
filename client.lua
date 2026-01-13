@@ -6,17 +6,7 @@ local base = require("luluworlds.base")
 local connection = require("luluworlds.connection")
 local TeeworldsClient = require("luluworlds.teeworlds_client")
 local network = require("luluworlds.network")
-
-local function require_or_nil(module)
-	local res = pcall(function ()
-		require(module)
-	end, module)
-	if res then
-		return require(module)
-	end
-	return nil
-end
-local signal = require_or_nil("posix.signal")
+local signal = base.require_or_nil("posix.signal")
 if not(signal) then
 	print("install posix.signal to disconnect on CTRL+C")
 end
