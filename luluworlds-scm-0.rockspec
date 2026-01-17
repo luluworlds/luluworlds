@@ -15,7 +15,7 @@ description = {
   labels = { "teeworlds", "ddnet", "ddracenetwork", "game", "client", "server", "protocol", "networking", "0.7" }
 }
 dependencies = {
-  "lua >= 5.1, < 5.5",
+  "lua >= 5.1, <= 5.5",
   "luaposix >= 36.2.1",
   "lua-getch >= 0.0-4",
   "luluman >= 2.0-0",
