@@ -1,0 +1,50 @@
+name: Lua
+
+on:
+  push:
+  pull_request:
+  merge_group:
+
+jobs:
+  types-and-syntax:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install lua 5.5.0
+      run: |
+        set -u
+        mkdir -p ~/.local/bin
+
+        cd ~
+        LUA_VERSION=5.5.0
+        curl -L -R -O https://www.lua.org/ftp/lua-"$LUA_VERSION".tar.gz
+        tar zxf lua-"$LUA_VERSION".tar.gz
+        cd lua-"$LUA_VERSION"
+        make all test
+        mv src/lua ~/.local/bin
+        mv src/luac ~/.local/bin
+
+    - name: Install luals
+      run: |
+        set -u
+
+        # TODO: this would be nice but its fucked big time
+        #
+        # LUALS_VERSION=3.16.4
+        # wget -O luals.tar.gz https://github.com/LuaLS/lua-language-server/releases/download/"$LUALS_VERSION"/lua-language-server-"$LUALS_VERSION"-linux-x64.tar.gz
+        # tar xvf luals.tar.gz
+
+        cd ~
+        git clone https://github.com/LuaLS/lua-language-server.git luals
+        cd luals
+        git checkout eacc3d8ed6a298e63a93bcf26cb4d572c797453a
+        bash make.sh
+
+    - name: Check with luals
+      run: |
+        lua -v
+        lua-language-server --check=.
