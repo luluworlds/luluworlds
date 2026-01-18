@@ -1,7 +1,5 @@
 --!strict
 
-local getch = require("lua-getch")
-
 local base = require("luluworlds.base")
 local connection = require("luluworlds.connection")
 local TeeworldsClient = require("luluworlds.teeworlds_client")
@@ -9,6 +7,10 @@ local network = require("luluworlds.network")
 local signal = base.require_or_nil("posix.signal")
 if not(signal) then
 	print("install posix.signal to disconnect on CTRL+C")
+end
+local getch = base.require_or_nil("lua-getch")
+if not(getch) then
+	print("install lua-getch for keyboard input")
 end
 
 local server_ip = "127.0.0.1"
@@ -34,6 +36,29 @@ end
 local client = TeeworldsClient.new()
 client:connect(server_ip, server_port)
 
+local function getch_restore_old_terminal_mode()
+	if not(getch) then
+		return
+	end
+	getch.restore_mode()
+end
+
+---@param blocking boolean
+local function getch_set_nonblocking(blocking)
+	if not(getch) then
+		return
+	end
+	getch.set_nonblocking(io.stdin, blocking)
+end
+
+-- set raw(non-linebuffered) mode, disable automatic echo of characters
+local function getch_set_raw_mode()
+	if not(getch) then
+		return
+	end
+	getch.set_raw_mode(io.stdin)
+end
+
 local function on_shutdown()
 	io.write("Quitting. Sending disconnect ...\n")
 
@@ -48,14 +73,12 @@ local function on_shutdown()
 		end
 	)
 
-	-- restore old terminal mode
-	getch.restore_mode()
+	getch_restore_old_terminal_mode()
 
 	-- enter line-buffered mode
 	io.stdin:setvbuf("line")
 
-	-- set blocking mode
-	getch.set_nonblocking(io.stdin, false)
+	getch_set_nonblocking(false)
 end
 
 if signal then
@@ -100,16 +123,12 @@ KEY_S = 115
 -- disable buffering through libc
 io.stdin:setvbuf("no")
 
--- set raw(non-linebuffered) mode, disable automatic echo of characters
-getch.set_raw_mode(io.stdin)
+getch_set_raw_mode()
+getch_set_nonblocking(true)
 
--- set the non-blocking mode for stdin
-getch.set_nonblocking(io.stdin, true)
-
-while true do
-	local data = client.socket:receive()
-	if data ~= nil then
-		client:on_data(data)
+function getch_user_input()
+	if not(getch) then
+		return true
 	end
 
 	local char = getch.get_char(io.stdin)
@@ -117,7 +136,7 @@ while true do
 	-- quit on q key
 	if (char==("q"):byte()) or (char==("Q"):byte()) then
 		on_shutdown()
-		break
+		return false
 	end
 
 	client.input.hook = 1
@@ -144,5 +163,17 @@ while true do
 	if char == KEY_S then
 		print("fire")
 		client.input.fire = client.input.fire + 1
+	end
+	return true
+end
+
+while true do
+	local data = client.socket:receive()
+	if data ~= nil then
+		client:on_data(data)
+	end
+
+	if not(getch_user_input()) then
+		break
 	end
 end

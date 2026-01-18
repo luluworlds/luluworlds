@@ -16,7 +16,6 @@ description = {
 }
 dependencies = {
   "lua >= 5.1, <= 5.5",
-  "lua-getch >= 0.0-4",
   "luluman >= 2.0-0",
   "luasocket"
 }
