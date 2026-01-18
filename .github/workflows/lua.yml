@@ -43,6 +43,7 @@ jobs:
         cd luals
         git checkout eacc3d8ed6a298e63a93bcf26cb4d572c797453a
         bash make.sh
+        echo "$PWD/bin" >>"${GITHUB_PATH}"
 
     - name: Check with luals
       run: |
